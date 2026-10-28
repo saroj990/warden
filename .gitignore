@@ -1,0 +1,37 @@
+# Build / planning prompt (keep local only)
+pr-review-agent-build-prompt.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local reports / outputs
+*.log
+review.md
+review.json

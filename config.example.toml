@@ -1,0 +1,40 @@
+# Example configuration for pr-review-agent.
+# Copy to config.toml and adjust. Secrets belong in environment variables.
+
+[review]
+# Comparison defaults (CLI flags override these when provided)
+base = "main"
+# Max bytes of diff content to send into a single model pass
+max_diff_bytes = 200_000
+# Max files to review in one run (0 = unlimited)
+max_files = 0
+
+[provider]
+# "ollama" | "openai_compatible"
+name = "ollama"
+model = ""
+# Ollama default; override via env or CLI
+base_url = "http://127.0.0.1:11434"
+timeout_seconds = 120
+
+[checks]
+# Only explicitly listed commands may run. Leave empty to skip deterministic checks.
+# Example: test = ["pytest", "-q"]
+enabled = false
+
+[report]
+# "markdown" | "json"
+format = "markdown"
+# Non-zero exit when findings at or above this severity: critical|high|medium|low|none
+fail_on_severity = "none"
+
+[security]
+# Paths never loaded into model context (globs relative to repo root)
+exclude_globs = [
+    ".env",
+    ".env.*",
+    "**/*.pem",
+    "**/secrets/**",
+    "**/node_modules/**",
+    "**/.git/**",
+]
