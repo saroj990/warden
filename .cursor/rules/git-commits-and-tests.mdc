@@ -11,6 +11,12 @@ alwaysApply: true
 - Never run `git config` (local or global) to set or override identity in this project.
 - Never invent a commit author; let git use the existing global config.
 
+## Branches
+
+- **One feature (or milestone) per branch** — e.g. `feature/diff-parser`, `feature/finding-schema-validator`.
+- Branch from `master` (or the agreed default base), implement and test there, then merge via PR when ready.
+- Do not stack unrelated features on the same branch.
+
 ## Individual commits
 
 - One logical change per commit (e.g. one feature, one fix, one test addition, one config change).
