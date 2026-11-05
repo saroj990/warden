@@ -1,4 +1,4 @@
-"""Command-line entry point for pr-review."""
+"""Command-line entry point for warden."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _FORMAT_CHOICES = ("markdown", "json")
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pr-review",
+        prog="warden",
         description="Local-first, evidence-backed pull request review agent.",
     )
     parser.add_argument(
@@ -119,8 +119,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_doctor(_args: argparse.Namespace) -> int:
-    print(f"pr-review {__version__}")
-    print("Status: local review pipeline available (pr-review review).")
+    print(f"warden {__version__}")
+    print("Status: local review pipeline available (warden review).")
     print("Python package import: ok")
     return 0
 

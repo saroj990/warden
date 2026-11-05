@@ -25,20 +25,20 @@ Optional config templates:
 ## CLI (current)
 
 ```bash
-pr-review --help
-pr-review --version
-pr-review doctor
+warden --help
+warden --version
+warden doctor
 
 # Working tree, including staged and unstaged changes, against a base revision.
 # Untracked files are not included. Requires a local Ollama model.
-pr-review review --repo . --base main --model <installed-model>
+warden review --repo . --base main --model <installed-model>
 
 # Committed range from the merge base of base and head.
-pr-review review --repo . --base main --head HEAD --model <installed-model>
+warden review --repo . --base main --head HEAD --model <installed-model>
 
 # Saved diff, JSON report. A run with no published findings says
 # "No actionable findings identified" and does not claim the change is defect-free.
-pr-review review --diff ./changes.diff --model <installed-model> \
+warden review --diff ./changes.diff --model <installed-model> \
   --format json --output ./review.json
 ```
 

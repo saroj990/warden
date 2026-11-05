@@ -35,7 +35,7 @@ def test_main_doctor_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
     code = main(["doctor"])
     captured = capsys.readouterr()
     assert code == 0
-    assert "pr-review" in captured.out
+    assert "warden" in captured.out
     assert __version__ in captured.out
     assert "local review pipeline" in captured.out
 
@@ -44,7 +44,7 @@ def test_main_without_command_prints_help(capsys: pytest.CaptureFixture[str]) ->
     code = main([])
     captured = capsys.readouterr()
     assert code == 0
-    assert "usage:" in captured.out.lower() or "pr-review" in captured.out
+    assert "usage:" in captured.out.lower() or "warden" in captured.out
 
 
 def test_review_diff_writes_json(
