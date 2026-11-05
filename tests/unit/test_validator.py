@@ -96,6 +96,22 @@ def test_rejects_empty_scenario_even_if_schema_bypassed_via_spaces() -> None:
     assert any("scenario is empty" in r for r in reasons)
 
 
+def test_rejects_excerpt_not_in_diff() -> None:
+    parsed = parse_unified_diff(SAMPLE_DIFF)
+    finding = _finding(
+        evidence=[
+            {
+                "file": "src/example.py",
+                "start_line": 2,
+                "end_line": 2,
+                "excerpt": "this line was invented by the model",
+            }
+        ]
+    )
+    reasons = validate_finding(finding, parsed)
+    assert any("not present in the diff" in reason for reason in reasons)
+
+
 def test_accepts_finding_built_with_auto_fingerprint() -> None:
     parsed = parse_unified_diff(SAMPLE_DIFF)
     finding = finding_with_fingerprint(

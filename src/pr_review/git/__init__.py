@@ -11,14 +11,17 @@ from pr_review.git.diff import (
     parse_unified_diff,
     parse_unified_diff_path,
 )
+from pr_review.git.repository import GitCommandError, collect_diff
 
 __all__ = [
     "DiffLine",
     "FileDiff",
     "FileStatus",
+    "GitCommandError",
     "Hunk",
     "LineKind",
     "ParsedDiff",
+    "collect_diff",
     "is_inline_commentable",
     "parse_unified_diff",
     "parse_unified_diff_path",

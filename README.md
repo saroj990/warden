@@ -2,7 +2,7 @@
 
 Local-first CLI that reviews Git diffs for **real, newly introduced defects**, with evidence-backed findings. Designed to run against a local working tree first (Ollama), and later integrate with GitHub and Bitbucket without rewriting the core engine.
 
-> **Status:** Project scaffold only. The review pipeline is not implemented yet.
+> **Status:** Local reviews work against a git diff or a saved unified diff. The pipeline asks the configured Ollama model for findings, drops anything the diff does not support, and writes Markdown or JSON. Context gathering, the evaluation harness, and GitHub/Bitbucket adapters are not implemented yet.
 
 ## Requirements
 
@@ -25,9 +25,21 @@ Optional config templates:
 ## CLI (current)
 
 ```bash
-pr-review --help
-pr-review --version
-pr-review doctor
+warden --help
+warden --version
+warden doctor
+
+# Working tree, including staged and unstaged changes, against a base revision.
+# Untracked files are not included. Requires a local Ollama model.
+warden review --repo . --base main --model <installed-model>
+
+# Committed range from the merge base of base and head.
+warden review --repo . --base main --head HEAD --model <installed-model>
+
+# Saved diff, JSON report. A run with no published findings says
+# "No actionable findings identified" and does not claim the change is defect-free.
+warden review --diff ./changes.diff --model <installed-model> \
+  --format json --output ./review.json
 ```
 
 ## Tests

@@ -22,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-pr-review = "pr_review.cli:main"
+warden = "pr_review.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pr_review"]

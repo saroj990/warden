@@ -74,12 +74,29 @@ class CheckResult(BaseModel):
     command: list[str] = Field(default_factory=list)
 
 
+class SkippedFile(BaseModel):
+    path: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class ReviewScope(BaseModel):
+    """How a review was selected, and which files were actually sent."""
+
+    diff_source: str = Field(min_length=1)
+    comparison: str = Field(min_length=1)
+    provider: str = ""
+    model: str = ""
+    files: list[str] = Field(default_factory=list)
+    skipped: list[SkippedFile] = Field(default_factory=list)
+
+
 class ReviewReport(BaseModel):
     schema_version: str = "1.0"
     summary: str = ""
     findings: list[Finding] = Field(default_factory=list)
     checks: list[CheckResult] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
+    scope: ReviewScope | None = None
 
 
 def parse_review_report(data: dict[str, Any] | str) -> ReviewReport:
@@ -143,7 +160,9 @@ __all__ = [
     "Finding",
     "LocationKind",
     "ReviewReport",
+    "ReviewScope",
     "Severity",
+    "SkippedFile",
     "compute_fingerprint",
     "finding_with_fingerprint",
     "parse_finding",

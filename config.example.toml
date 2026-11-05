@@ -8,6 +8,8 @@ base = "main"
 max_diff_bytes = 200_000
 # Max files to review in one run (0 = unlimited)
 max_files = 0
+# Extra attempts when a model chunk is not valid JSON (0 = no retry)
+parse_retries = 1
 
 [provider]
 # "ollama" | "openai_compatible"
