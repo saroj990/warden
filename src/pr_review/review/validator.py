@@ -6,7 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from pydantic import BaseModel, Field
 
-from pr_review.git.diff import FileDiff, ParsedDiff, is_inline_commentable
+from pr_review.git.diff import FileDiff, LineKind, ParsedDiff, is_inline_commentable
 from pr_review.models import Finding, LocationKind
 
 
@@ -80,6 +80,16 @@ def _validation_reasons(
             )
         if not evidence.excerpt.strip():
             reasons.append("evidence excerpt is empty")
+            continue
+        evidence_diff = _find_file_diff(parsed_diff, evidence.file)
+        if evidence_diff is None:
+            reasons.append(f"evidence file not present in diff: {evidence.file}")
+            continue
+        invented = _invented_excerpt_line(evidence_diff, evidence.excerpt)
+        if invented is not None:
+            reasons.append(
+                "evidence excerpt is not present in the diff: " + invented
+            )
 
     if not finding.problem.strip():
         reasons.append("problem is empty")
@@ -105,6 +115,22 @@ def _validation_reasons(
     # published as inline comments by reporters (enforced later).
 
     return reasons
+
+
+def _invented_excerpt_line(file_diff: FileDiff, excerpt: str) -> str | None:
+    """Return the first excerpt line that is not copied from the diff."""
+    available = {
+        line.content.strip()
+        for hunk in file_diff.hunks
+        for line in hunk.lines
+        if line.kind in {LineKind.ADD, LineKind.DELETE, LineKind.CONTEXT}
+        and line.content.strip()
+    }
+    for raw_line in excerpt.splitlines():
+        stripped = raw_line.strip()
+        if stripped and stripped not in available:
+            return stripped[:80]
+    return None
 
 
 def _find_file_diff(parsed_diff: ParsedDiff, path: str) -> FileDiff | None:

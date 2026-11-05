@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pr_review import __version__
 from pr_review.cli import build_parser, main
+from pr_review.models import parse_review_report
+from pr_review.providers.base import ProviderConnectionError
+from tests.unit.test_orchestrator import (
+    SAMPLE_DIFF,
+    ScriptedProvider,
+    _document,
+    _finding_payload,
+)
 
 
 def test_package_version_is_semver_like() -> None:
@@ -27,6 +37,7 @@ def test_main_doctor_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
     assert code == 0
     assert "pr-review" in captured.out
     assert __version__ in captured.out
+    assert "local review pipeline" in captured.out
 
 
 def test_main_without_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
@@ -34,3 +45,160 @@ def test_main_without_command_prints_help(capsys: pytest.CaptureFixture[str]) ->
     captured = capsys.readouterr()
     assert code == 0
     assert "usage:" in captured.out.lower() or "pr-review" in captured.out
+
+
+def test_review_diff_writes_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+    output_path = tmp_path / "review.json"
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: ScriptedProvider([_document([_finding_payload()])]),
+    )
+
+    code = main(
+        [
+            "review",
+            "--diff",
+            str(diff_path),
+            "--model",
+            "test-model",
+            "--format",
+            "json",
+            "--output",
+            str(output_path),
+            "--fail-on",
+            "critical",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert captured.out == ""
+    report = parse_review_report(output_path.read_text(encoding="utf-8"))
+    assert report.findings[0].title == "Possible None dereference"
+    assert report.scope is not None
+    assert report.scope.model == "test-model"
+
+
+def test_review_fail_on_high_exits_one(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: ScriptedProvider([_document([_finding_payload()])]),
+    )
+
+    code = main(
+        [
+            "review",
+            "--diff",
+            str(diff_path),
+            "--model",
+            "test-model",
+            "--format",
+            "json",
+            "--fail-on",
+            "high",
+        ]
+    )
+
+    assert code == 1
+    report = parse_review_report(capsys.readouterr().out)
+    assert len(report.findings) == 1
+
+
+def test_review_provider_failure_exits_one(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+
+    class FailingProvider(ScriptedProvider):
+        def chat(self, messages, *, model, timeout_seconds=None):
+            raise ProviderConnectionError("Ollama is down")
+
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: FailingProvider([]),
+    )
+    code = main(["review", "--diff", str(diff_path), "--model", "test-model"])
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "Ollama is down" in captured.err
+    assert captured.out == ""
+
+
+def test_review_requires_a_model(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+    code = main(["review", "--diff", str(diff_path)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "model is required" in captured.err
+
+
+def test_review_rejects_unimplemented_provider(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+    code = main(
+        [
+            "review",
+            "--diff",
+            str(diff_path),
+            "--model",
+            "test-model",
+            "--provider",
+            "openai_compatible",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "not implemented" in captured.err
+
+
+def test_review_refuses_diff_combined_with_base(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diff_path = tmp_path / "changes.diff"
+    diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
+    code = main(
+        [
+            "review",
+            "--diff",
+            str(diff_path),
+            "--base",
+            "main",
+            "--model",
+            "test-model",
+        ]
+    )
+    assert code == 2
+    assert "--diff" in capsys.readouterr().err
+
+
+def test_review_help_lists_diff_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["review", "--help"])
+    assert exc.value.code == 0
+    assert "--diff" in capsys.readouterr().out
