@@ -2,7 +2,7 @@
 
 Local-first CLI that reviews Git diffs for **real, newly introduced defects**, with evidence-backed findings. Designed to run against a local working tree first (Ollama), and later integrate with GitHub and Bitbucket without rewriting the core engine.
 
-> **Status:** Local reviews work against a git diff or a saved unified diff. The pipeline asks the configured Ollama model for findings, drops anything the diff does not support, and writes Markdown or JSON. Context gathering, the evaluation harness, and GitHub/Bitbucket adapters are not implemented yet.
+> **Status:** Local reviews work against a git diff or a saved unified diff. When a work tree is available, the pipeline also loads surrounding source lines around changed hunks. It asks the configured Ollama model for findings, drops anything the diff does not support, and writes Markdown or JSON. Symbol search, the evaluation harness, and GitHub/Bitbucket adapters are not implemented yet.
 
 ## Requirements
 

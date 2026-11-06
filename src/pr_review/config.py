@@ -38,6 +38,9 @@ class Settings(BaseModel):
     exclude_globs: list[str] = Field(
         default_factory=lambda: list(DEFAULT_EXCLUDE_GLOBS)
     )
+    context_enabled: bool = True
+    context_surrounding_lines: int = Field(default=15, ge=0)
+    context_max_bytes: int = Field(default=50_000, ge=0)
 
 
 def load_settings(
@@ -89,6 +92,9 @@ def _defaults() -> dict[str, object]:
         "report_format": "markdown",
         "fail_on_severity": "none",
         "exclude_globs": list(DEFAULT_EXCLUDE_GLOBS),
+        "context_enabled": True,
+        "context_surrounding_lines": 15,
+        "context_max_bytes": 50_000,
     }
 
 
@@ -128,6 +134,14 @@ def _overlay_toml(payload: dict[str, object], path: Path) -> None:
         ):
             raise ConfigError("security.exclude_globs must be a list of strings")
         payload["exclude_globs"] = list(globs)
+
+    context = _section(loaded, "context")
+    if "enabled" in context:
+        payload["context_enabled"] = context["enabled"]
+    if "surrounding_lines" in context:
+        payload["context_surrounding_lines"] = context["surrounding_lines"]
+    if "max_bytes" in context:
+        payload["context_max_bytes"] = context["max_bytes"]
 
 
 def _section(loaded: dict[str, object], name: str) -> dict[str, object]:

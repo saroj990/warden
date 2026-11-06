@@ -11,6 +11,12 @@ max_files = 0
 # Extra attempts when a model chunk is not valid JSON (0 = no retry)
 parse_retries = 1
 
+[context]
+# Load surrounding source lines from the repo (requires --repo / a work tree)
+enabled = true
+surrounding_lines = 15
+max_bytes = 50_000
+
 [provider]
 # "ollama" | "openai_compatible"
 name = "ollama"

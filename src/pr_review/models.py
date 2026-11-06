@@ -79,6 +79,15 @@ class SkippedFile(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class ContextInspection(BaseModel):
+    """A contiguous slice of a repository file loaded for review context."""
+
+    path: str = Field(min_length=1)
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    reason: str = Field(min_length=1)
+
+
 class ReviewScope(BaseModel):
     """How a review was selected, and which files were actually sent."""
 
@@ -88,6 +97,7 @@ class ReviewScope(BaseModel):
     model: str = ""
     files: list[str] = Field(default_factory=list)
     skipped: list[SkippedFile] = Field(default_factory=list)
+    context_inspected: list[ContextInspection] = Field(default_factory=list)
 
 
 class ReviewReport(BaseModel):
@@ -156,6 +166,7 @@ def finding_with_fingerprint(data: dict[str, Any]) -> Finding:
 __all__ = [
     "Category",
     "CheckResult",
+    "ContextInspection",
     "Evidence",
     "Finding",
     "LocationKind",

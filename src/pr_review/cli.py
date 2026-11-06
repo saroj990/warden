@@ -159,6 +159,9 @@ def cmd_review(args: argparse.Namespace) -> int:
             exclude_globs=settings.exclude_globs,
             repo_root=str(Path(args.repo).expanduser().resolve()),
             include_untracked_limitation=untracked,
+            context_enabled=settings.context_enabled,
+            context_surrounding_lines=settings.context_surrounding_lines,
+            context_max_bytes=settings.context_max_bytes,
         )
     except ValidationError as exc:
         print(f"error: invalid review options: {exc}", file=sys.stderr)
