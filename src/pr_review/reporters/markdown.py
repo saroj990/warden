@@ -39,6 +39,13 @@ def _scope_section(report: ReviewReport) -> list[str]:
         lines.append("- Files skipped:")
         for skipped in scope.skipped:
             lines.append(f"  - `{skipped.path}`: {skipped.reason}")
+    if scope.context_inspected:
+        lines.append("- Repository context inspected:")
+        for item in scope.context_inspected:
+            lines.append(
+                f"  - `{item.path}` lines {item.start_line}-{item.end_line}: "
+                f"{item.reason}"
+            )
     lines.append("")
     return lines
 

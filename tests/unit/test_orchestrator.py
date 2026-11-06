@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -249,6 +250,53 @@ Binary files /dev/null and b/image.bin differ
     assert provider.calls == 0
     assert report.scope is not None
     assert any(item.reason == "binary file" for item in report.scope.skipped)
+
+
+def _git(repo, *args: str) -> None:
+    subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_symbol_search_is_included_in_the_prompt(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    (repo / "lib.py").write_text(
+        "def apply_discount(amount):\n    return amount\n",
+        encoding="utf-8",
+    )
+    (repo / "order.py").write_text(
+        "total = apply_discount(1)\nreturn total\n",
+        encoding="utf-8",
+    )
+    _git(repo, "add", "lib.py", "order.py")
+    _git(repo, "commit", "-m", "init")
+    diff = """\
+diff --git a/order.py b/order.py
+--- a/order.py
++++ b/order.py
+@@ -1 +1,2 @@
+-total = 1
++total = apply_discount(1)
++return total
+"""
+    provider = ScriptedProvider([_document()])
+    report = run_review(
+        diff,
+        provider,
+        _options(repo_root=str(repo), context_surrounding_lines=0),
+    )
+
+    assert "symbol context: apply_discount" in provider.prompts[0]
+    assert report.scope is not None
+    assert any(
+        item.path == "lib.py" and "apply_discount" in item.reason
+        for item in report.scope.context_inspected
+    )
 
 
 def test_missing_model_raises_before_a_call() -> None:

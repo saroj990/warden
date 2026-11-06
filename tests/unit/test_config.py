@@ -20,6 +20,7 @@ def test_defaults_when_config_missing(
     assert settings.fail_on_severity == "none"
     assert settings.parse_retries == 1
     assert ".env" in settings.exclude_globs
+    assert settings.context_symbol_search is True
 
 
 def test_toml_then_environment_override(
@@ -61,6 +62,18 @@ exclude_globs = ["*.secret"]
     assert settings.report_format == "json"
     assert settings.fail_on_severity == "high"
     assert settings.exclude_globs == ["*.secret"]
+
+
+def test_context_symbol_search_can_be_disabled(tmp_path) -> None:
+    (tmp_path / "config.toml").write_text(
+        """
+[context]
+symbol_search = false
+""",
+        encoding="utf-8",
+    )
+    settings = load_settings(cwd=tmp_path)
+    assert settings.context_symbol_search is False
 
 
 def test_missing_explicit_config_raises(tmp_path: object) -> None:

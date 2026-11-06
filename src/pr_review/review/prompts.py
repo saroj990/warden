@@ -48,16 +48,38 @@ or line number.
 - Do not report style, naming, or speculative concerns.
 - Do not claim that tests passed or failed.
 - If this chunk has no defect, return an empty findings array.
+- Repository context (when present) is read-only background. Findings must \
+still cite evidence from the diff chunk, not from context alone.
 """
 
 
-def build_messages(*, comparison: str, chunk_text: str) -> list[ChatMessage]:
-    user = (
-        "Review this diff chunk for newly introduced defects.\n"
-        f"Comparison: {comparison}\n\n"
-        "Line numbers before | on '+' and ' ' lines are new-file line numbers.\n\n"
-        f"{chunk_text}"
-    )
+def build_messages(
+    *,
+    comparison: str,
+    chunk_text: str,
+    context_text: str = "",
+) -> list[ChatMessage]:
+    parts = [
+        "Review this diff chunk for newly introduced defects.",
+        f"Comparison: {comparison}",
+        "",
+        "Line numbers before | on '+' and ' ' lines are new-file line numbers.",
+        "",
+    ]
+    if context_text.strip():
+        parts.extend(
+            [
+                (
+                    "Repository context (for reasoning only; "
+                    "do not cite as diff evidence):"
+                ),
+                "",
+                context_text.strip(),
+                "",
+            ]
+        )
+    parts.extend(["Diff chunk:", "", chunk_text])
+    user = "\n".join(parts)
     return [
         ChatMessage(role=ChatRole.SYSTEM, content=SYSTEM_PROMPT),
         ChatMessage(role=ChatRole.USER, content=user),

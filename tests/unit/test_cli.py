@@ -196,6 +196,51 @@ def test_review_refuses_diff_combined_with_base(
     assert "--diff" in capsys.readouterr().err
 
 
+def test_eval_passes_when_labels_match(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: ScriptedProvider(
+            [
+                _document([_finding_payload()]),
+                _document(),
+                _document(),
+            ]
+        ),
+    )
+    code = main(["eval", "--model", "test-model"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Defects caught: 1/1" in captured.out
+    assert "Result: passed" in captured.out
+
+
+def test_eval_exits_one_when_a_defect_is_missed(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: ScriptedProvider(
+            [_document(), _document(), _document()]
+        ),
+    )
+    code = main(["eval", "--model", "test-model"])
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "Defects caught: 0/1" in captured.out
+    assert "none-deref" in captured.out
+
+
+def test_eval_missing_cases_exits_two(capsys: pytest.CaptureFixture[str]) -> None:
+    code = main(["eval", "--model", "test-model", "--cases", "missing-eval-dir"])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "not found" in captured.err
+
+
 def test_review_help_lists_diff_flag(capsys: pytest.CaptureFixture[str]) -> None:
     parser = build_parser()
     with pytest.raises(SystemExit) as exc:
