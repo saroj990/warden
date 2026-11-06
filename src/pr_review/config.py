@@ -41,6 +41,7 @@ class Settings(BaseModel):
     context_enabled: bool = True
     context_surrounding_lines: int = Field(default=15, ge=0)
     context_max_bytes: int = Field(default=50_000, ge=0)
+    context_symbol_search: bool = True
 
 
 def load_settings(
@@ -95,6 +96,7 @@ def _defaults() -> dict[str, object]:
         "context_enabled": True,
         "context_surrounding_lines": 15,
         "context_max_bytes": 50_000,
+        "context_symbol_search": True,
     }
 
 
@@ -142,6 +144,8 @@ def _overlay_toml(payload: dict[str, object], path: Path) -> None:
         payload["context_surrounding_lines"] = context["surrounding_lines"]
     if "max_bytes" in context:
         payload["context_max_bytes"] = context["max_bytes"]
+    if "symbol_search" in context:
+        payload["context_symbol_search"] = context["symbol_search"]
 
 
 def _section(loaded: dict[str, object], name: str) -> dict[str, object]:

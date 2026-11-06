@@ -69,7 +69,10 @@ def build_messages(
     if context_text.strip():
         parts.extend(
             [
-                "Repository context (for reasoning only; do not cite as diff evidence):",
+                (
+                    "Repository context (for reasoning only; "
+                    "do not cite as diff evidence):"
+                ),
                 "",
                 context_text.strip(),
                 "",

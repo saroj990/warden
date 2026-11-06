@@ -16,6 +16,8 @@ parse_retries = 1
 enabled = true
 surrounding_lines = 15
 max_bytes = 50_000
+# git grep for definitions and callers of symbols added in the diff
+symbol_search = true
 
 [provider]
 # "ollama" | "openai_compatible"

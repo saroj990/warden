@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from pr_review.config import DEFAULT_EXCLUDE_GLOBS, ConfigError
 from pr_review.context.loader import gather_surrounding_context
+from pr_review.context.search import gather_symbol_context
 from pr_review.git.diff import FileDiff, parse_unified_diff
 from pr_review.models import (
     ContextInspection,
@@ -49,6 +50,7 @@ class ReviewOptions(BaseModel):
     context_enabled: bool = True
     context_surrounding_lines: int = Field(default=15, ge=0)
     context_max_bytes: int = Field(default=50_000, ge=0)
+    context_symbol_search: bool = True
 
 
 class ReviewOutputError(Exception):
@@ -233,11 +235,25 @@ def _review_chunk(
             surrounding_lines=options.context_surrounding_lines,
             max_bytes=options.context_max_bytes,
         )
-        context_text = gathered.prompt_text
-        context_inspected = gathered.inspected
+        context_parts = [gathered.prompt_text] if gathered.prompt_text else []
+        context_inspected = list(gathered.inspected)
         context_notes = [
             f"Chunk {chunk_index}: {note}" for note in gathered.notes if note
         ]
+        if options.context_symbol_search:
+            symbols = gather_symbol_context(
+                repo_root=options.repo_root,
+                file_diffs=chunk_files,
+                exclude_globs=options.exclude_globs,
+                max_bytes=options.context_max_bytes,
+            )
+            if symbols.prompt_text:
+                context_parts.append(symbols.prompt_text)
+            context_inspected.extend(symbols.inspected)
+            context_notes.extend(
+                f"Chunk {chunk_index}: {note}" for note in symbols.notes if note
+            )
+        context_text = "\n\n".join(context_parts)
 
     messages = build_messages(
         comparison=options.comparison,

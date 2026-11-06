@@ -12,7 +12,11 @@ from pr_review.review.validator import (
 )
 
 if TYPE_CHECKING:
-    from pr_review.review.orchestrator import ReviewOptions, ReviewOutputError, run_review
+    from pr_review.review.orchestrator import (
+        ReviewOptions,
+        ReviewOutputError,
+        run_review,
+    )
 
 __all__ = [
     "RejectedFinding",

@@ -162,6 +162,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             context_enabled=settings.context_enabled,
             context_surrounding_lines=settings.context_surrounding_lines,
             context_max_bytes=settings.context_max_bytes,
+            context_symbol_search=settings.context_symbol_search,
         )
     except ValidationError as exc:
         print(f"error: invalid review options: {exc}", file=sys.stderr)
