@@ -10,6 +10,9 @@ from pydantic import ValidationError
 
 from pr_review import __version__
 from pr_review.config import ConfigError, Settings, load_settings
+from pr_review.eval.cases import EvalError, load_cases
+from pr_review.eval.report import render_eval_report
+from pr_review.eval.runner import run_evaluation
 from pr_review.git.repository import GitCommandError, collect_diff
 from pr_review.providers.base import LLMProvider, ProviderError
 from pr_review.providers.ollama import OllamaProvider
@@ -115,6 +118,55 @@ def build_parser() -> argparse.ArgumentParser:
         help="Provider timeout in seconds.",
     )
     review.set_defaults(func=cmd_review)
+
+    evaluate = subparsers.add_parser(
+        "eval",
+        help="Score the reviewer against labeled fixture diffs.",
+    )
+    evaluate.add_argument(
+        "--cases",
+        default="tests/fixtures/eval",
+        help="Directory of labeled cases (default: tests/fixtures/eval).",
+    )
+    evaluate.add_argument(
+        "--provider",
+        default=None,
+        help="LLM provider. Only ollama is implemented.",
+    )
+    evaluate.add_argument(
+        "--model",
+        default=None,
+        help="Model name passed to the provider.",
+    )
+    evaluate.add_argument(
+        "--base-url",
+        default=None,
+        help="Provider base URL. Default: OLLAMA_BASE_URL or the local Ollama URL.",
+    )
+    evaluate.add_argument(
+        "--format",
+        dest="report_format",
+        choices=_FORMAT_CHOICES,
+        default=None,
+        help="Report format (default: markdown).",
+    )
+    evaluate.add_argument(
+        "--output",
+        default=None,
+        help="Write the report to this path instead of stdout.",
+    )
+    evaluate.add_argument(
+        "--config",
+        default=None,
+        help="TOML config file. Default: ./config.toml when that file exists.",
+    )
+    evaluate.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="Provider timeout in seconds.",
+    )
+    evaluate.set_defaults(func=cmd_eval)
     return parser
 
 
@@ -188,6 +240,54 @@ def cmd_review(args: argparse.Namespace) -> int:
     if exceeds_fail_threshold(report, settings.fail_on_severity):
         return 1
     return 0
+
+
+def cmd_eval(args: argparse.Namespace) -> int:
+    try:
+        settings = load_settings(args.config)
+        updates: dict[str, object] = {}
+        if args.provider:
+            updates["provider_name"] = args.provider
+        if args.model:
+            updates["model"] = args.model
+        if args.base_url:
+            updates["base_url"] = args.base_url
+        if args.report_format:
+            updates["report_format"] = args.report_format
+        if args.timeout is not None:
+            updates["timeout_seconds"] = args.timeout
+        if updates:
+            settings = settings.model_copy(update=updates)
+        _validate_report_settings(settings)
+        if not settings.model.strip():
+            raise ConfigError("model is required (pass --model or set OLLAMA_MODEL)")
+        cases = load_cases(args.cases)
+    except (ConfigError, EvalError, OSError, ValidationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        provider = build_provider(settings)
+        report = run_evaluation(
+            cases,
+            provider,
+            model=settings.model,
+            timeout_seconds=settings.timeout_seconds,
+        )
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except ProviderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    rendered = render_eval_report(report, settings.report_format)
+    try:
+        _write_report(rendered, args.output)
+    except OSError as exc:
+        print(f"error: could not write report: {exc}", file=sys.stderr)
+        return 2
+    return 0 if report.passed else 1
 
 
 def _validate_report_settings(settings: Settings) -> None:

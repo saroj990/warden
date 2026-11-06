@@ -1,0 +1,12 @@
+{
+  "id": "none-deref",
+  "kind": "defect",
+  "summary": "strip() is called on a value that may be missing.",
+  "expect": [
+    {
+      "file": "src/example.py",
+      "category": "correctness",
+      "line": 2
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "rename-local",
+  "kind": "clean",
+  "summary": "A local variable is renamed and the return value is unchanged.",
+  "expect": []
+}
