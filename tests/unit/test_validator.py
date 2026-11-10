@@ -96,6 +96,23 @@ def test_rejects_empty_scenario_even_if_schema_bypassed_via_spaces() -> None:
     assert any("scenario is empty" in r for r in reasons)
 
 
+def test_accepts_excerpt_with_prompt_line_number_prefix() -> None:
+    parsed = parse_unified_diff(SAMPLE_DIFF)
+    finding = _finding(
+        evidence=[
+            {
+                "file": "src/example.py",
+                "start_line": 3,
+                "end_line": 3,
+                "excerpt": "3|    return value.strip()",
+            }
+        ],
+        line=3,
+    )
+    reasons = validate_finding(finding, parsed)
+    assert not any("not present in the diff" in reason for reason in reasons)
+
+
 def test_rejects_excerpt_not_in_diff() -> None:
     parsed = parse_unified_diff(SAMPLE_DIFF)
     finding = _finding(

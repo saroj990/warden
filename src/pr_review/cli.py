@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from pr_review.eval.cases import EvalError, load_cases
 from pr_review.eval.report import render_eval_report
 from pr_review.eval.runner import run_evaluation
 from pr_review.git.repository import GitCommandError, collect_diff
+from pr_review.integrations.github import GitHubClient, GitHubError
+from pr_review.integrations.review_pr import render_github_review, run_github_review
 from pr_review.providers.base import LLMProvider, ProviderError
 from pr_review.providers.ollama import OllamaProvider
 from pr_review.reporters import exceeds_fail_threshold, render_report
@@ -167,12 +170,84 @@ def build_parser() -> argparse.ArgumentParser:
         help="Provider timeout in seconds.",
     )
     evaluate.set_defaults(func=cmd_eval)
+
+    github = subparsers.add_parser(
+        "github",
+        help="Review a GitHub pull request. Dry-run unless --publish is set.",
+    )
+    github_commands = github.add_subparsers(dest="github_command")
+    github_review = github_commands.add_parser(
+        "review",
+        help="Review a pull request and preview or post a COMMENT review.",
+    )
+    github_review.add_argument(
+        "--repository",
+        required=True,
+        help="GitHub repository as owner/name.",
+    )
+    github_review.add_argument(
+        "--pr",
+        type=int,
+        required=True,
+        help="Pull request number.",
+    )
+    github_review.add_argument(
+        "--provider",
+        default=None,
+        help="LLM provider. Only ollama is implemented.",
+    )
+    github_review.add_argument(
+        "--model",
+        default=None,
+        help="Model name passed to the provider.",
+    )
+    github_review.add_argument(
+        "--base-url",
+        default=None,
+        help="Model provider base URL. Default: OLLAMA_BASE_URL or local Ollama.",
+    )
+    github_review.add_argument(
+        "--format",
+        dest="report_format",
+        choices=_FORMAT_CHOICES,
+        default=None,
+        help="Report format (default: markdown).",
+    )
+    github_review.add_argument(
+        "--output",
+        default=None,
+        help="Write the preview or publish result to this path instead of stdout.",
+    )
+    github_review.add_argument(
+        "--config",
+        default=None,
+        help="TOML config file. Default: ./config.toml when that file exists.",
+    )
+    github_review.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="Provider timeout in seconds.",
+    )
+    github_review.add_argument(
+        "--publish",
+        action="store_true",
+        help="Post a COMMENT review. Omit this flag to preview only.",
+    )
+    github_review.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview comments without posting. This is the default.",
+    )
+    github_review.set_defaults(func=cmd_github_review)
+    github.set_defaults(func=cmd_github)
     return parser
 
 
 def cmd_doctor(_args: argparse.Namespace) -> int:
     print(f"warden {__version__}")
     print("Status: local review pipeline available (warden review).")
+    print("GitHub: dry-run by default (warden github review --publish to post).")
     print("Python package import: ok")
     return 0
 
@@ -356,6 +431,65 @@ def _write_report(rendered: str, output: str | None) -> None:
         Path(output).write_text(rendered, encoding="utf-8")
         return
     sys.stdout.write(rendered)
+
+
+def cmd_github(args: argparse.Namespace) -> int:
+    if not getattr(args, "github_command", None):
+        print("error: github requires a subcommand (review)", file=sys.stderr)
+        return 2
+    return cmd_github_review(args)
+
+
+def cmd_github_review(args: argparse.Namespace) -> int:
+    if args.publish and args.dry_run:
+        print("error: use either --publish or --dry-run, not both", file=sys.stderr)
+        return 2
+    try:
+        settings = load_settings(args.config)
+        updates: dict[str, object] = {}
+        if args.provider:
+            updates["provider_name"] = args.provider
+        if args.model:
+            updates["model"] = args.model
+        if args.base_url:
+            updates["base_url"] = args.base_url
+        if args.report_format:
+            updates["report_format"] = args.report_format
+        if args.timeout is not None:
+            updates["timeout_seconds"] = args.timeout
+        if updates:
+            settings = settings.model_copy(update=updates)
+        _validate_report_settings(settings)
+        if not settings.model.strip():
+            raise ConfigError("model is required (pass --model or set OLLAMA_MODEL)")
+        token = os.environ.get("GITHUB_TOKEN", "").strip()
+        if not token:
+            raise GitHubError("GITHUB_TOKEN is required")
+        api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").strip()
+        provider = build_provider(settings)
+        github = GitHubClient(
+            token=token,
+            base_url=api_url or "https://api.github.com",
+        )
+        with github as client:
+            result = run_github_review(
+                client=client,
+                provider=provider,
+                repository=args.repository,
+                pull_number=args.pr,
+                model=settings.model,
+                timeout_seconds=settings.timeout_seconds,
+                publish=args.publish,
+            )
+        rendered = render_github_review(result, settings.report_format)
+        _write_report(rendered, args.output)
+    except (ConfigError, GitHubError, OSError, ValidationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (ProviderError, ReviewOutputError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

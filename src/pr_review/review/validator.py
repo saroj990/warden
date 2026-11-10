@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path, PurePosixPath
 
 from pydantic import BaseModel, Field
@@ -127,10 +128,18 @@ def _invented_excerpt_line(file_diff: FileDiff, excerpt: str) -> str | None:
         and line.content.strip()
     }
     for raw_line in excerpt.splitlines():
-        stripped = raw_line.strip()
+        stripped = _strip_prompt_line_prefix(raw_line.strip())
         if stripped and stripped not in available:
             return stripped[:80]
     return None
+
+
+_PROMPT_LINE_PREFIX = re.compile(r"^[+-]?\s*\d+\|\s*")
+
+
+def _strip_prompt_line_prefix(line: str) -> str:
+    """Remove new-file line numbers the model sometimes copies from the prompt."""
+    return _PROMPT_LINE_PREFIX.sub("", line, count=1).strip()
 
 
 def _find_file_diff(parsed_diff: ParsedDiff, path: str) -> FileDiff | None:
