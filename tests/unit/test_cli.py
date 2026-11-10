@@ -241,6 +241,104 @@ def test_eval_missing_cases_exits_two(capsys: pytest.CaptureFixture[str]) -> Non
     assert "not found" in captured.err
 
 
+def test_github_review_defaults_to_dry_run(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from pr_review.integrations.review_pr import GitHubReviewResult
+
+    seen: dict[str, object] = {}
+
+    def fake_run(**kwargs: object) -> GitHubReviewResult:
+        seen.update(kwargs)
+        return GitHubReviewResult(
+            repository="acme/app",
+            pull_number=7,
+            commit_id="abc123",
+            html_url="https://github.com/acme/app/pull/7",
+            mode="dry-run",
+            posted=False,
+            post=True,
+            summary="Checked the pull request",
+        )
+
+    monkeypatch.setenv("GITHUB_TOKEN", "cli-token-value")
+    monkeypatch.setattr("pr_review.cli.run_github_review", fake_run)
+    monkeypatch.setattr(
+        "pr_review.cli.build_provider",
+        lambda _settings: ScriptedProvider([]),
+    )
+    code = main(
+        [
+            "github",
+            "review",
+            "--repository",
+            "acme/app",
+            "--pr",
+            "7",
+            "--model",
+            "test-model",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 0
+    assert seen["publish"] is False
+    assert "Mode: dry-run" in captured.out
+    assert "cli-token-value" not in captured.out
+    assert "cli-token-value" not in captured.err
+
+
+def test_github_review_requires_a_token(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    code = main(
+        [
+            "github",
+            "review",
+            "--repository",
+            "acme/app",
+            "--pr",
+            "7",
+            "--model",
+            "test-model",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "GITHUB_TOKEN" in captured.err
+
+
+def test_github_review_rejects_publish_and_dry_run(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = main(
+        [
+            "github",
+            "review",
+            "--repository",
+            "acme/app",
+            "--pr",
+            "7",
+            "--model",
+            "test-model",
+            "--publish",
+            "--dry-run",
+        ]
+    )
+    assert code == 2
+    assert "--publish" in capsys.readouterr().err
+
+
+def test_github_without_subcommand_exits_two(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = main(["github"])
+    assert code == 2
+    assert "subcommand" in capsys.readouterr().err
+
+
 def test_review_help_lists_diff_flag(capsys: pytest.CaptureFixture[str]) -> None:
     parser = build_parser()
     with pytest.raises(SystemExit) as exc:

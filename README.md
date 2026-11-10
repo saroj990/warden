@@ -2,7 +2,7 @@
 
 Local-first CLI that reviews Git diffs for **real, newly introduced defects**, with evidence-backed findings. Designed to run against a local working tree first (Ollama), and later integrate with GitHub and Bitbucket without rewriting the core engine.
 
-> **Status:** Local reviews work against a git diff or a saved unified diff. When a work tree is available, the pipeline loads surrounding source lines around changed hunks and searches the repo for definitions and callers of symbols added in the diff. It asks the configured Ollama model for findings, drops anything the diff does not support, and writes Markdown or JSON. `warden eval` scores that pipeline against labeled fixture diffs. GitHub and Bitbucket adapters are not implemented yet.
+> **Status:** Local reviews work against a git diff or a saved unified diff. When a work tree is available, the pipeline loads surrounding source lines around changed hunks and searches the repo for definitions and callers of symbols added in the diff. It asks the configured Ollama model for findings, drops anything the diff does not support, and writes Markdown or JSON. `warden eval` scores that pipeline against labeled fixture diffs. `warden github review` can preview comments on a pull request and posts them only with `--publish`. Bitbucket is not implemented yet.
 
 ## Requirements
 
@@ -45,6 +45,12 @@ warden review --diff ./changes.diff --model <installed-model> \
 # clean or suppressed case publishes a finding. Context is not loaded.
 # Results depend on the model.
 warden eval --model <installed-model> --timeout 180
+
+# Preview GitHub pull request comments. This does not post anything.
+# GITHUB_TOKEN is required and is not printed. Add --publish to post a
+# COMMENT review. The command never approves or merges.
+warden github review --repository owner/name --pr 123 \
+  --model <installed-model> --timeout 180
 ```
 
 ## Tests
