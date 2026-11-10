@@ -1,6 +1,9 @@
 # Build / planning prompt (keep local only)
 pr-review-agent-build-prompt.md
 
+# Local issue and planning notes (not tracked)
+issues/
+
 # Python
 __pycache__/
 *.py[cod]
