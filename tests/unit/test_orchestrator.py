@@ -117,6 +117,8 @@ class ScriptedProvider(LLMProvider):
         *,
         model: str,
         timeout_seconds: float | None = None,
+        stream: bool = False,
+        stream_writer=None,
     ) -> ProviderResponse:
         self.calls += 1
         self.prompts.append("\n".join(message.content for message in messages))

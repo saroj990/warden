@@ -125,7 +125,7 @@ def test_review_provider_failure_exits_one(
     diff_path.write_text(SAMPLE_DIFF, encoding="utf-8")
 
     class FailingProvider(ScriptedProvider):
-        def chat(self, messages, *, model, timeout_seconds=None):
+        def chat(self, messages, *, model, timeout_seconds=None, **kwargs):
             raise ProviderConnectionError("Ollama is down")
 
     monkeypatch.setattr(

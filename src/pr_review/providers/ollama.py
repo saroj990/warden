@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import sys
 import time
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -113,6 +116,8 @@ class OllamaProvider(LLMProvider):
         *,
         model: str,
         timeout_seconds: float | None = None,
+        stream: bool = False,
+        stream_writer: Callable[[str], None] | None = None,
     ) -> ProviderResponse:
         if not model.strip():
             raise ProviderResponseError("model name is required")
@@ -130,44 +135,49 @@ class OllamaProvider(LLMProvider):
                 {"role": message.role.value, "content": message.content}
                 for message in messages
             ],
-            "stream": False,
+            "stream": stream,
         }
 
         started = time.perf_counter()
-        try:
-            response = self._get_client().post(
-                "/api/chat",
-                json=body,
-                timeout=timeout,
-            )
-            response.raise_for_status()
-        except httpx.TimeoutException as exc:
-            raise ProviderTimeoutError("Ollama chat request timed out") from exc
-        except httpx.HTTPStatusError as exc:
-            detail = _http_error_detail(exc.response)
-            if exc.response.status_code == 404:
+        client = self._get_client()
+        if stream:
+            writer = stream_writer or _default_stream_writer
+            try:
+                content, payload = _chat_stream(client, body, timeout, writer)
+            except httpx.TimeoutException as exc:
+                raise ProviderTimeoutError("Ollama chat request timed out") from exc
+            except httpx.HTTPStatusError as exc:
+                _raise_chat_http_error(exc, model)
+            except httpx.HTTPError as exc:
+                raise ProviderConnectionError("Ollama chat request failed") from exc
+        else:
+            try:
+                response = client.post(
+                    "/api/chat",
+                    json=body,
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+            except httpx.TimeoutException as exc:
+                raise ProviderTimeoutError("Ollama chat request timed out") from exc
+            except httpx.HTTPStatusError as exc:
+                _raise_chat_http_error(exc, model)
+            except httpx.HTTPError as exc:
+                raise ProviderConnectionError("Ollama chat request failed") from exc
+
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise ProviderResponseError("Ollama returned non-JSON body") from exc
+
+            content = _extract_assistant_content(payload)
+            if content is None:
                 raise ProviderResponseError(
-                    "Ollama returned 404 for /api/chat. "
-                    f"Model {model!r} is likely not installed — pick a name from "
-                    "check_connection() details['models'] or run `ollama list`. "
-                    f"{detail}"
-                ) from exc
-            raise ProviderConnectionError(
-                f"Ollama chat request failed: HTTP {exc.response.status_code}. "
-                f"{detail}"
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise ProviderConnectionError("Ollama chat request failed") from exc
+                    "Ollama response missing assistant content"
+                )
 
         elapsed = time.perf_counter() - started
-
-        try:
-            payload: dict[str, Any] = response.json()
-        except ValueError as exc:
-            raise ProviderResponseError("Ollama returned non-JSON body") from exc
-
-        content = _extract_assistant_content(payload)
-        if content is None:
+        if not content.strip():
             raise ProviderResponseError("Ollama response missing assistant content")
 
         safe_metadata = {
@@ -185,6 +195,63 @@ class OllamaProvider(LLMProvider):
             elapsed_seconds=elapsed,
             raw_metadata=safe_metadata,
         )
+
+
+def _default_stream_writer(text: str) -> None:
+    sys.stderr.write(text)
+    sys.stderr.flush()
+
+
+def _raise_chat_http_error(exc: httpx.HTTPStatusError, model: str) -> None:
+    detail = _http_error_detail(exc.response)
+    if exc.response.status_code == 404:
+        raise ProviderResponseError(
+            "Ollama returned 404 for /api/chat. "
+            f"Model {model!r} is likely not installed — pick a name from "
+            "check_connection() details['models'] or run `ollama list`. "
+            f"{detail}"
+        ) from exc
+    raise ProviderConnectionError(
+        f"Ollama chat request failed: HTTP {exc.response.status_code}. "
+        f"{detail}"
+    ) from exc
+
+
+def _chat_stream(
+    client: httpx.Client,
+    body: dict[str, Any],
+    timeout: float,
+    writer: Callable[[str], None],
+) -> tuple[str, dict[str, Any]]:
+    """Read Ollama NDJSON stream and return full text plus the final payload."""
+    parts: list[str] = []
+    last_payload: dict[str, Any] = {}
+    with client.stream(
+        "POST",
+        "/api/chat",
+        json=body,
+        timeout=timeout,
+    ) as response:
+        response.raise_for_status()
+        for line in response.iter_lines():
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ProviderResponseError(
+                    "Ollama stream returned invalid JSON"
+                ) from exc
+            if not isinstance(payload, dict):
+                continue
+            last_payload = payload
+            message = payload.get("message")
+            if isinstance(message, dict):
+                delta = message.get("content")
+                if isinstance(delta, str) and delta:
+                    parts.append(delta)
+                    writer(delta)
+    return "".join(parts), last_payload
 
 
 def _http_error_detail(response: httpx.Response) -> str:

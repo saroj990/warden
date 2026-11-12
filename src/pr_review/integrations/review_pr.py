@@ -42,6 +42,7 @@ def run_github_review(
     model: str,
     timeout_seconds: float,
     publish: bool,
+    stream_model_output: bool = False,
 ) -> GitHubReviewResult:
     """Review one pull request. Publishing happens only when ``publish`` is set."""
     owner, name = parse_repository(repository)
@@ -59,6 +60,7 @@ def run_github_review(
             timeout_seconds=timeout_seconds,
             context_enabled=False,
             context_symbol_search=False,
+            stream_model_output=stream_model_output,
         ),
     )
     plan = build_review_plan(

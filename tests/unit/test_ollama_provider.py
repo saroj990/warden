@@ -158,6 +158,39 @@ def test_chat_unknown_model_404_raises_response_error() -> None:
     assert "YOUR_MODEL" in str(exc_info.value)
 
 
+def test_chat_stream_success() -> None:
+    captured: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode())
+        assert body["stream"] is True
+        lines = [
+            json.dumps({"message": {"content": "Hel"}, "done": False}),
+            json.dumps(
+                {
+                    "model": "llama3",
+                    "message": {"content": "lo"},
+                    "done": True,
+                    "eval_count": 2,
+                }
+            ),
+        ]
+        return httpx.Response(200, content="\n".join(lines).encode())
+
+    client = _mock_transport(httpx.MockTransport(handler))
+    provider = OllamaProvider(client=client)
+    response = provider.chat(
+        [ChatMessage(role=ChatRole.USER, content="Review this diff.")],
+        model="llama3",
+        stream=True,
+        stream_writer=captured.append,
+    )
+
+    assert response.content == "Hello"
+    assert response.model == "llama3"
+    assert captured == ["Hel", "lo"]
+
+
 def test_chat_requires_model_and_messages() -> None:
     provider = OllamaProvider(
         client=_mock_transport(httpx.MockTransport(lambda r: httpx.Response(200)))

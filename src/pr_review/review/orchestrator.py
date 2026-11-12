@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from pydantic import BaseModel, Field, ValidationError
 
 from pr_review.config import DEFAULT_EXCLUDE_GLOBS, ConfigError
@@ -51,6 +53,7 @@ class ReviewOptions(BaseModel):
     context_surrounding_lines: int = Field(default=15, ge=0)
     context_max_bytes: int = Field(default=50_000, ge=0)
     context_symbol_search: bool = True
+    stream_model_output: bool = False
 
 
 class ReviewOutputError(Exception):
@@ -263,11 +266,27 @@ def _review_chunk(
     attempts = options.parse_retries + 1
     last_error = "model response was empty"
     for attempt in range(attempts):
+        if options.stream_model_output:
+            if attempt == 0:
+                sys.stderr.write(
+                    f"Chunk {chunk_index}/{chunk_count}: "
+                    f"waiting for {options.model}…\n"
+                )
+            else:
+                sys.stderr.write(
+                    f"Chunk {chunk_index}/{chunk_count}: "
+                    f"retry {attempt + 1}/{attempts}…\n"
+                )
+            sys.stderr.flush()
         response = provider.chat(
             messages,
             model=options.model,
             timeout_seconds=options.timeout_seconds,
+            stream=options.stream_model_output,
         )
+        if options.stream_model_output:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
         try:
             document = parse_model_document(response.content)
             return _ChunkReviewResult(
