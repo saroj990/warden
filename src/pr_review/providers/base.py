@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
@@ -71,5 +72,12 @@ class LLMProvider(ABC):
         *,
         model: str,
         timeout_seconds: float | None = None,
+        stream: bool = False,
+        stream_writer: Callable[[str], None] | None = None,
     ) -> ProviderResponse:
-        """Run a chat completion and return assistant text plus safe metadata."""
+        """Run a chat completion and return assistant text plus safe metadata.
+
+        When ``stream`` is true, implementations may write incremental model
+        output via ``stream_writer`` (default: stderr) while still returning
+        the full assistant text.
+        """

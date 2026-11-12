@@ -120,6 +120,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Provider timeout in seconds.",
     )
+    review.add_argument(
+        "--stream",
+        action="store_true",
+        help="Stream model output to stderr while Ollama generates (review report still on stdout).",
+    )
     review.set_defaults(func=cmd_review)
 
     evaluate = subparsers.add_parser(
@@ -230,6 +235,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Provider timeout in seconds.",
     )
     github_review.add_argument(
+        "--stream",
+        action="store_true",
+        help="Stream model output to stderr while Ollama generates.",
+    )
+    github_review.add_argument(
         "--publish",
         action="store_true",
         help="Post a COMMENT review. Omit this flag to preview only.",
@@ -290,6 +300,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             context_surrounding_lines=settings.context_surrounding_lines,
             context_max_bytes=settings.context_max_bytes,
             context_symbol_search=settings.context_symbol_search,
+            stream_model_output=bool(getattr(args, "stream", False)),
         )
     except ValidationError as exc:
         print(f"error: invalid review options: {exc}", file=sys.stderr)
@@ -480,6 +491,7 @@ def cmd_github_review(args: argparse.Namespace) -> int:
                 model=settings.model,
                 timeout_seconds=settings.timeout_seconds,
                 publish=args.publish,
+                stream_model_output=bool(getattr(args, "stream", False)),
             )
         rendered = render_github_review(result, settings.report_format)
         _write_report(rendered, args.output)
