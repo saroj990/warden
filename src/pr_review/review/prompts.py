@@ -4,6 +4,22 @@ from __future__ import annotations
 
 from pr_review.providers.base import ChatMessage, ChatRole
 
+_LOGICAL_REGRESSION_RULES = """\
+For each hunk, compare lines removed (-) with lines added (+). Report when the \
+new code materially worsens behavior, not only when new APIs look dangerous.
+
+Logical / numeric invariants (when the diff changes expressions or returns):
+- Units and scale: percent usually means divide by 100; money may be cents vs \
+dollars; time may be ms vs s. If removed code scaled a value and added code \
+does not, that is a correctness defect.
+- Bounds: values that must stay in 0..100% or non-negative must not use a \
+formula that breaks that (e.g. treat 20 as 20.0 not as 20%).
+- Guards: if removed code checked for None, empty, or path escape and added \
+code omits that check, treat it as a defect when the path is still reachable.
+- Money display: formatting cents or minor units must not print raw cents as \
+whole dollars without dividing by 100.
+"""
+
 SYSTEM_PROMPT = """\
 You are a code-review engine. Report only real, material defects that the \
 diff newly introduces or materially worsens.
@@ -50,7 +66,8 @@ or line number.
 - If this chunk has no defect, return an empty findings array.
 - Repository context (when present) is read-only background. Findings must \
 still cite evidence from the diff chunk, not from context alone.
-"""
+
+""" + _LOGICAL_REGRESSION_RULES
 
 
 def build_messages(
