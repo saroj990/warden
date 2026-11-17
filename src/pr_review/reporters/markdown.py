@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pr_review.models import Finding, ReviewReport
+from pr_review.models import CheckResult, Finding, ReviewReport
 
 _NO_CHECKS = "No deterministic checks were run."
 
@@ -12,10 +12,22 @@ def render_markdown(report: ReviewReport) -> str:
     lines.append(report.summary.strip() or "No actionable findings identified.")
     lines.append("")
     lines.extend(_scope_section(report))
-    lines.extend(["## Checks", "", _NO_CHECKS, ""])
+    lines.extend(_checks_section(report.checks))
     lines.extend(_findings_section(report.findings))
     lines.extend(_limitations_section(report.limitations))
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _checks_section(checks: list[CheckResult]) -> list[str]:
+    lines = ["## Checks", ""]
+    if not checks:
+        lines.extend([_NO_CHECKS, ""])
+        return lines
+    for check in checks:
+        summary = check.summary.strip() or check.status
+        lines.append(f"- {check.name}: {summary} ({check.status})")
+    lines.append("")
+    return lines
 
 
 def _scope_section(report: ReviewReport) -> list[str]:

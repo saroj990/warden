@@ -174,6 +174,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Provider timeout in seconds.",
     )
+    evaluate.add_argument(
+        "--regression-checks",
+        action="store_true",
+        help="Enable diff-backed regression heuristics during eval.",
+    )
     evaluate.set_defaults(func=cmd_eval)
 
     github = subparsers.add_parser(
@@ -301,6 +306,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             context_max_bytes=settings.context_max_bytes,
             context_symbol_search=settings.context_symbol_search,
             stream_model_output=bool(getattr(args, "stream", False)),
+            checks_regression_enabled=settings.checks_regression_enabled,
         )
     except ValidationError as exc:
         print(f"error: invalid review options: {exc}", file=sys.stderr)
@@ -354,11 +360,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
     try:
         provider = build_provider(settings)
+        regression_checks = settings.checks_regression_enabled or bool(
+            getattr(args, "regression_checks", False)
+        )
         report = run_evaluation(
             cases,
             provider,
             model=settings.model,
             timeout_seconds=settings.timeout_seconds,
+            checks_regression_enabled=regression_checks,
         )
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)

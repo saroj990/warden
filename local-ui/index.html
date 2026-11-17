@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Warden local review</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        line-height: 1.4;
+        color: #1a1a1a;
+        background: #f5f5f5;
+      }
+      body {
+        max-width: 52rem;
+        margin: 1.5rem auto;
+        padding: 0 1rem 2rem;
+      }
+      body.compare-mode {
+        max-width: min(96rem, 100%);
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 600;
+      }
+      fieldset {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        background: #fff;
+      }
+      legend {
+        font-weight: 600;
+        padding: 0 0.35rem;
+      }
+      label {
+        display: block;
+        margin: 0.6rem 0 0.25rem;
+        font-size: 0.9rem;
+      }
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.45rem 0.5rem;
+        font: inherit;
+      }
+      .row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1 1 12rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.5rem 1rem;
+        margin-right: 0.5rem;
+        margin-top: 0.5rem;
+        cursor: pointer;
+      }
+      button.primary {
+        background: #1a5fb4;
+        color: #fff;
+        border: 1px solid #1a5fb4;
+        border-radius: 6px;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      #status {
+        min-height: 1.25rem;
+        margin: 0.75rem 0;
+        font-size: 0.9rem;
+      }
+      #status.error {
+        color: #b00020;
+      }
+      #report {
+        min-height: 14rem;
+        font-family: ui-monospace, monospace;
+        font-size: 0.82rem;
+      }
+      .report-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin: 0.5rem 0;
+      }
+      .report-toolbar button.active {
+        background: #e8e8e8;
+        border-radius: 6px;
+        border: 1px solid #bbb;
+      }
+      #reportPreview {
+        min-height: 14rem;
+        padding: 1rem 1.25rem;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: auto;
+      }
+      #reportPreview h1 {
+        font-size: 1.5rem;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 0.35rem;
+      }
+      #reportPreview h2 {
+        font-size: 1.2rem;
+        margin-top: 1.25rem;
+      }
+      #reportPreview h3 {
+        font-size: 1.05rem;
+        margin-top: 1rem;
+      }
+      #reportPreview code {
+        font-family: ui-monospace, monospace;
+        font-size: 0.88em;
+        background: #f0f0f0;
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+      }
+      #reportPreview pre {
+        background: #f0f0f0;
+        padding: 0.75rem;
+        border-radius: 6px;
+        overflow: auto;
+      }
+      #reportPreview pre code {
+        background: none;
+        padding: 0;
+      }
+      #reportPreview ul,
+      #reportPreview ol {
+        padding-left: 1.4rem;
+      }
+      #reportPreview[hidden],
+      #report[hidden] {
+        display: none;
+      }
+      .hint {
+        font-size: 0.8rem;
+        color: #555;
+        margin-top: 0.2rem;
+      }
+      .model-compare {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        margin: 0.5rem 0 0.75rem;
+      }
+      .model-compare label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+      .compare-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+      }
+      @media (max-width: 900px) {
+        .compare-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .compare-column {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #fff;
+        padding: 0.65rem 0.75rem;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .compare-column h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 0;
+        word-break: break-word;
+      }
+      .compare-column .col-status {
+        font-size: 0.82rem;
+        color: #444;
+        min-height: 1.1rem;
+      }
+      .compare-column .col-status.error {
+        color: #b00020;
+      }
+      .compare-column .col-status.running {
+        color: #1a5fb4;
+      }
+      .compare-column .col-preview {
+        flex: 1;
+        min-height: 14rem;
+        max-height: 70vh;
+        overflow: auto;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        background: #fafafa;
+      }
+      .compare-column .col-preview h1 {
+        font-size: 1.15rem;
+      }
+      .compare-column .col-preview h2 {
+        font-size: 1rem;
+      }
+      .compare-column .col-preview code {
+        font-family: ui-monospace, monospace;
+        font-size: 0.88em;
+        background: #f0f0f0;
+        padding: 0.1em 0.35rem;
+        border-radius: 4px;
+      }
+      #singleReport[hidden],
+      #compareResults[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Warden local review</h1>
+    <p class="hint">
+      Compares a git repo with Ollama. Head empty = working tree vs base (local only).
+      Server runs on this machine only (127.0.0.1). For private GitHub repos, set
+      <code>GITHUB_TOKEN</code> in the server environment or use the token field below.
+    </p>
+
+    <fieldset>
+      <legend>Repository</legend>
+      <label for="source">Source</label>
+      <select id="source">
+        <option value="local">Local folder (git root)</option>
+        <option value="github">GitHub (public or token-granted)</option>
+      </select>
+      <label for="repo" id="repoLabel">Repo path (git root)</label>
+      <input
+        id="repo"
+        type="text"
+        autocomplete="off"
+        placeholder="/path/to/repo or owner/name"
+      />
+      <p class="hint" id="repoHint">
+        Local path to the repository root. Use Refresh branch list before picking refs.
+      </p>
+      <label for="githubToken" id="githubTokenLabel" hidden
+        >GitHub token (optional; overrides env)</label
+      >
+      <input
+        id="githubToken"
+        type="password"
+        autocomplete="off"
+        placeholder="ghp_… (not saved to form.json)"
+        hidden
+      />
+      <div class="row">
+        <div>
+          <label for="base">Base branch / ref</label>
+          <input id="base" type="text" value="main" />
+        </div>
+        <div>
+          <label for="head">Head branch / ref</label>
+          <input id="head" type="text" placeholder="empty = working tree" />
+        </div>
+      </div>
+      <button type="button" id="btnBranches">Refresh branch list</button>
+      <label for="branchPick">Pick branch (fills head)</label>
+      <select id="branchPick">
+        <option value="">—</option>
+      </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Ollama</legend>
+      <label for="baseUrl">Host URL</label>
+      <input id="baseUrl" type="text" value="http://127.0.0.1:11434" />
+      <p class="hint">Local or remote Ollama base URL (no trailing path).</p>
+      <button type="button" id="btnModels">Refresh model list</button>
+      <label for="modelSelect">Model</label>
+      <select id="modelSelect">
+        <option value="">— refresh models —</option>
+        <option value="__other__">Other (type below)…</option>
+      </select>
+      <input
+        id="modelOther"
+        type="text"
+        placeholder="Custom model name"
+        hidden
+      />
+      <div class="row">
+        <div>
+          <label for="timeout">Timeout (seconds)</label>
+          <input id="timeout" type="number" min="60" value="900" />
+          <p class="hint">Large PRs on qwen3:8b often need 900–1800 seconds.</p>
+        </div>
+        <div>
+          <label for="stream">
+            <input id="stream" type="checkbox" />
+            Stream model output (terminal on server)
+          </label>
+        </div>
+      </div>
+      <label>Compare (pick up to 3; same repo and settings)</label>
+      <div id="modelCompare" class="model-compare">
+        <span class="hint">Refresh model list to show checkboxes.</span>
+      </div>
+    </fieldset>
+
+    <button type="button" class="primary" id="btnReview">Review (single model)</button>
+    <button type="button" class="primary" id="btnCompare">Compare selected</button>
+    <button type="button" id="btnSave" disabled>Save report</button>
+
+    <p id="status"></p>
+
+    <div id="singleReport">
+      <div class="report-toolbar">
+        <span>Report</span>
+        <button type="button" id="btnPreview" class="active">Preview</button>
+        <button type="button" id="btnSource">Source</button>
+      </div>
+      <div id="reportPreview" hidden aria-label="Rendered report">
+        <p class="hint">Run a review to see the report here.</p>
+      </div>
+      <textarea
+        id="report"
+        readonly
+        hidden
+        placeholder="Run a review to see the report here."
+      ></textarea>
+    </div>
+
+    <section id="compareResults" hidden aria-label="Model comparison">
+      <h2 style="font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0">
+        Side-by-side comparison
+      </h2>
+      <p class="hint">Models run one after another; each column updates when its run finishes.</p>
+      <div id="compareGrid" class="compare-grid"></div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function renderPreview(markdown) {
+        const el = $("reportPreview");
+        if (!markdown.trim()) {
+          el.innerHTML =
+            '<p class="hint">Run a review to see the report here.</p>';
+          return;
+        }
+        if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+          el.innerHTML =
+            '<p class="hint">Preview needs marked.js (CDN). Use Source view.</p>';
+          return;
+        }
+        const html = DOMPurify.sanitize(
+          marked.parse(markdown, { gfm: true, breaks: false })
+        );
+        el.innerHTML = html;
+      }
+
+      function setReportMode(mode) {
+        const preview = mode === "preview";
+        $("btnPreview").classList.toggle("active", preview);
+        $("btnSource").classList.toggle("active", !preview);
+        $("reportPreview").hidden = !preview;
+        $("report").hidden = preview;
+        if (preview) {
+          renderPreview($("report").value);
+        }
+      }
+
+      $("btnPreview").addEventListener("click", () => setReportMode("preview"));
+      $("btnSource").addEventListener("click", () => setReportMode("source"));
+
+      let pendingModelPref = "";
+      const MAX_COMPARE = 3;
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      function syncModelOtherUi() {
+        const other = $("modelSelect").value === "__other__";
+        $("modelOther").hidden = !other;
+      }
+
+      function selectedModel() {
+        const pick = $("modelSelect").value;
+        if (pick === "__other__") {
+          return $("modelOther").value.trim();
+        }
+        return pick.trim();
+      }
+
+      function selectedCompareModels() {
+        const boxes = document.querySelectorAll(
+          '#modelCompare input[type="checkbox"]:checked'
+        );
+        return [...boxes].map((b) => b.value).filter(Boolean);
+      }
+
+      function rebuildModelCompareCheckboxes(modelNames) {
+        const wrap = $("modelCompare");
+        const keep = new Set(selectedCompareModels());
+        wrap.innerHTML = "";
+        if (!modelNames.length) {
+          wrap.innerHTML =
+            '<span class="hint">No models on this host yet.</span>';
+          return;
+        }
+        for (const name of modelNames) {
+          const label = document.createElement("label");
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = name;
+          cb.checked = keep.has(name);
+          cb.addEventListener("change", (e) => {
+            const checked = selectedCompareModels();
+            if (checked.length > MAX_COMPARE) {
+              e.target.checked = false;
+              $("status").textContent = `Compare is limited to ${MAX_COMPARE} models.`;
+              $("status").className = "error";
+            }
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(name));
+          wrap.appendChild(label);
+        }
+      }
+
+      function setModelSelection(name) {
+        const trimmed = (name || "").trim();
+        if (!trimmed) {
+          $("modelSelect").value = "";
+          syncModelOtherUi();
+          return;
+        }
+        const sel = $("modelSelect");
+        for (const opt of sel.options) {
+          if (opt.value === trimmed) {
+            sel.value = trimmed;
+            syncModelOtherUi();
+            return;
+          }
+        }
+        $("modelOther").value = trimmed;
+        sel.value = "__other__";
+        syncModelOtherUi();
+      }
+
+      async function refreshModels(opts = {}) {
+        const quiet = opts.quiet === true;
+        const baseUrl = $("baseUrl").value.trim();
+        if (!baseUrl) {
+          if (!quiet) {
+            $("status").textContent = "Enter an Ollama host URL first.";
+            $("status").className = "error";
+          }
+          return;
+        }
+        if (!quiet) {
+          $("status").textContent = "Loading models from Ollama…";
+          $("status").className = "";
+        }
+        const res = await fetch(
+          "/api/ollama/models?" + new URLSearchParams({ baseUrl })
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          if (!quiet) {
+            $("status").textContent = data.error || "Could not list models";
+            $("status").className = "error";
+          }
+          return;
+        }
+        const sel = $("modelSelect");
+        const keep = selectedModel() || pendingModelPref;
+        sel.innerHTML =
+          '<option value="">— pick a model —</option>' +
+          '<option value="__other__">Other (type below)…</option>';
+        for (const name of data.models || []) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        }
+        if (keep) {
+          setModelSelection(keep);
+          pendingModelPref = "";
+        }
+        rebuildModelCompareCheckboxes(data.models || []);
+        if (!quiet) {
+          $("status").textContent = `Found ${(data.models || []).length} models.`;
+        }
+      }
+
+      $("modelSelect").addEventListener("change", syncModelOtherUi);
+      $("btnModels").addEventListener("click", () => refreshModels());
+      $("baseUrl").addEventListener("change", () => refreshModels({ quiet: true }));
+
+      function syncSourceUi() {
+        const github = $("source").value === "github";
+        $("repoLabel").textContent = github
+          ? "GitHub repo (owner/name or URL)"
+          : "Repo path (git root)";
+        $("repo").placeholder = github
+          ? "e.g. cursor/cursor or https://github.com/owner/repo"
+          : "/path/to/repo";
+        $("repoHint").textContent = github
+          ? "Clones or updates under local-ui/cache/repos/. Token required for private repos."
+          : "Local path to the repository root. Use Refresh branch list before picking refs.";
+        $("githubTokenLabel").hidden = !github;
+        $("githubToken").hidden = !github;
+        $("head").placeholder = github
+          ? "branch name (required on GitHub)"
+          : "empty = working tree";
+      }
+
+      $("source").addEventListener("change", () => {
+        syncSourceUi();
+        $("branchPick").innerHTML = '<option value="">—</option>';
+      });
+
+      async function loadPrefs() {
+        const res = await fetch("/api/prefs");
+        if (!res.ok) return;
+        const p = await res.json();
+        if (p.source) $("source").value = p.source;
+        if (p.repo) $("repo").value = p.repo;
+        if (p.base) $("base").value = p.base;
+        syncSourceUi();
+        if (p.head) $("head").value = p.head;
+        if (p.baseUrl) $("baseUrl").value = p.baseUrl;
+        if (p.model) pendingModelPref = p.model;
+        if (p.timeout) $("timeout").value = p.timeout;
+        if (p.stream) $("stream").checked = p.stream;
+      }
+
+      async function savePrefs() {
+        const body = {
+          source: $("source").value,
+          repo: $("repo").value.trim(),
+          base: $("base").value.trim(),
+          head: $("head").value.trim(),
+          baseUrl: $("baseUrl").value.trim(),
+          model: selectedModel(),
+          timeout: Number($("timeout").value) || 900,
+          stream: $("stream").checked,
+        };
+        await fetch("/api/prefs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+
+      async function refreshBranches() {
+        const repo = $("repo").value.trim();
+        if (!repo) {
+          $("status").textContent = "Enter a repo path first.";
+          $("status").className = "error";
+          return;
+        }
+        $("status").textContent = "Loading branches…";
+        $("status").className = "";
+        const params = {
+          source: $("source").value,
+          repo,
+        };
+        const token = $("githubToken").value.trim();
+        if (token) params.githubToken = token;
+        const res = await fetch(
+          "/api/branches?" + new URLSearchParams(params)
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          $("status").textContent = data.error || "Could not list branches";
+          $("status").className = "error";
+          return;
+        }
+        const sel = $("branchPick");
+        sel.innerHTML = '<option value="">—</option>';
+        for (const b of data.branches || []) {
+          const opt = document.createElement("option");
+          opt.value = b;
+          opt.textContent = b;
+          sel.appendChild(opt);
+        }
+        $("status").textContent = `Found ${(data.branches || []).length} branches.`;
+      }
+
+      $("branchPick").addEventListener("change", () => {
+        const v = $("branchPick").value;
+        if (v) $("head").value = v;
+      });
+
+      $("btnBranches").addEventListener("click", refreshBranches);
+
+      let lastReport = "";
+
+      function buildReviewPayload(model) {
+        const body = {
+          source: $("source").value,
+          repo: $("repo").value.trim(),
+          base: $("base").value.trim() || "main",
+          head: $("head").value.trim(),
+          baseUrl: $("baseUrl").value.trim(),
+          model,
+          timeout: Number($("timeout").value) || 900,
+          stream: $("stream").checked,
+        };
+        const token = $("githubToken").value.trim();
+        if (token) body.githubToken = token;
+        return body;
+      }
+
+      function validateReviewPayload(body) {
+        if (!body.model) {
+          return "Pick a model (refresh list or use Other).";
+        }
+        if ($("source").value === "github" && !body.head) {
+          return "Pick a head branch when using GitHub (no working tree).";
+        }
+        if (!body.repo) {
+          return "Enter a repo path or GitHub repo.";
+        }
+        return "";
+      }
+
+      function renderColumnPreview(el, markdown) {
+        if (!markdown.trim()) {
+          el.innerHTML = '<p class="hint">No report.</p>';
+          return;
+        }
+        if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+          el.textContent = markdown;
+          return;
+        }
+        el.innerHTML = DOMPurify.sanitize(
+          marked.parse(markdown, { gfm: true, breaks: false })
+        );
+      }
+
+      function showSingleReport(show) {
+        $("singleReport").hidden = !show;
+        $("compareResults").hidden = show;
+        document.body.classList.toggle("compare-mode", !show);
+      }
+
+      function buildCompareColumns(models) {
+        const grid = $("compareGrid");
+        grid.innerHTML = "";
+        const cols = [];
+        for (const model of models) {
+          const col = document.createElement("div");
+          col.className = "compare-column";
+          col.innerHTML =
+            "<h3></h3><p class=\"col-status\"></p><div class=\"col-preview\"></div>";
+          col.querySelector("h3").textContent = model;
+          cols.push({
+            model,
+            statusEl: col.querySelector(".col-status"),
+            previewEl: col.querySelector(".col-preview"),
+          });
+          grid.appendChild(col);
+        }
+        return cols;
+      }
+
+      function setColStatus(col, text, kind) {
+        col.statusEl.textContent = text;
+        col.statusEl.className = "col-status" + (kind ? " " + kind : "");
+      }
+
+      async function pollReviewJob(jobId, onTick) {
+        while (true) {
+          await sleep(1500);
+          const poll = await fetch("/api/jobs/" + encodeURIComponent(jobId));
+          const job = await poll.json();
+          if (!poll.ok) {
+            throw new Error(job.error || "Lost track of review job");
+          }
+          if (onTick) onTick(job);
+          if (job.status === "queued" || job.status === "running") {
+            continue;
+          }
+          if (job.status === "error") {
+            throw new Error(job.error || "Review failed");
+          }
+          if (job.status === "done") {
+            return job.markdown || "";
+          }
+        }
+      }
+
+      async function startReviewJob(body) {
+        const res = await fetch("/api/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const start = await res.json();
+        if (!res.ok) {
+          throw new Error(start.error || "Review failed to start");
+        }
+        if (!start.jobId) {
+          throw new Error("Server did not return a job id.");
+        }
+        return start.jobId;
+      }
+
+      function setReviewButtonsDisabled(disabled) {
+        $("btnReview").disabled = disabled;
+        $("btnCompare").disabled = disabled;
+      }
+
+      $("btnReview").addEventListener("click", async () => {
+        await savePrefs();
+        setReviewButtonsDisabled(true);
+        $("btnSave").disabled = true;
+        showSingleReport(true);
+        $("status").textContent =
+          "Starting review… (progress here; model stream in server terminal)";
+        $("status").className = "";
+        $("report").value = "";
+        renderPreview("");
+        setReportMode("preview");
+
+        const body = buildReviewPayload(selectedModel());
+        const err = validateReviewPayload(body);
+        if (err) {
+          $("status").textContent = err;
+          $("status").className = "error";
+          setReviewButtonsDisabled(false);
+          return;
+        }
+
+        try {
+          const jobId = await startReviewJob(body);
+          const markdown = await pollReviewJob(jobId, () => {
+            $("status").textContent =
+              "Review running… watch the server terminal" +
+              (body.stream ? " for streamed tokens." : ".");
+          });
+          lastReport = markdown;
+          $("report").value = lastReport;
+          renderPreview(lastReport);
+          setReportMode("preview");
+          $("status").textContent = "Review finished.";
+          $("btnSave").disabled = !lastReport;
+        } catch (e) {
+          $("status").textContent = String(e);
+          $("status").className = "error";
+        } finally {
+          setReviewButtonsDisabled(false);
+        }
+      });
+
+      $("btnCompare").addEventListener("click", async () => {
+        await savePrefs();
+        let models = selectedCompareModels();
+        if (models.length < 2) {
+          $("status").textContent =
+            "Check at least 2 models to compare (max 3).";
+          $("status").className = "error";
+          return;
+        }
+        if (models.length > MAX_COMPARE) {
+          models = models.slice(0, MAX_COMPARE);
+        }
+
+        const probe = buildReviewPayload(models[0]);
+        const err = validateReviewPayload(probe);
+        if (err) {
+          $("status").textContent = err;
+          $("status").className = "error";
+          return;
+        }
+
+        setReviewButtonsDisabled(true);
+        $("btnSave").disabled = true;
+        lastReport = "";
+        showSingleReport(false);
+        const cols = buildCompareColumns(models);
+        for (const col of cols) {
+          setColStatus(col, "Waiting…", "");
+          renderColumnPreview(col.previewEl, "");
+        }
+
+        const stream = $("stream").checked;
+        let doneCount = 0;
+
+        try {
+          for (let i = 0; i < models.length; i++) {
+            const model = models[i];
+            const col = cols[i];
+            for (let j = i + 1; j < cols.length; j++) {
+              if (cols[j].statusEl.textContent === "Waiting…") {
+                setColStatus(
+                  cols[j],
+                  `Queued (${j - i} ahead)…`,
+                  ""
+                );
+              }
+            }
+            setColStatus(col, "Starting…", "running");
+            $("status").textContent = `Compare: running ${model} (${i + 1}/${models.length})…`;
+            $("status").className = "";
+
+            const body = buildReviewPayload(model);
+            const jobId = await startReviewJob(body);
+            setColStatus(col, "Running…", "running");
+
+            const markdown = await pollReviewJob(jobId, (job) => {
+              const phase =
+                job.status === "queued" ? "Queued on server…" : "Running…";
+              setColStatus(col, phase, "running");
+              $("status").textContent = `Compare: ${model} — ${phase} (${i + 1}/${models.length})`;
+            });
+            renderColumnPreview(col.previewEl, markdown);
+            setColStatus(col, "Done", "");
+            doneCount += 1;
+          }
+          $("status").textContent = `Compare finished (${doneCount}/${models.length}).`;
+          $("status").className = "";
+        } catch (e) {
+          $("status").textContent = String(e);
+          $("status").className = "error";
+          const running = cols.find((c) =>
+            c.statusEl.classList.contains("running")
+          );
+          if (running) {
+            setColStatus(running, String(e), "error");
+          }
+        } finally {
+          setReviewButtonsDisabled(false);
+        }
+      });
+
+      $("btnSave").addEventListener("click", async () => {
+        if (!lastReport) return;
+        const name =
+          prompt("Filename (saved under local-ui/reports/)", "review.md") ||
+          "";
+        if (!name.trim()) return;
+        const res = await fetch("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: name.trim(), content: lastReport }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          $("status").textContent = data.error || "Save failed";
+          $("status").className = "error";
+          return;
+        }
+        $("status").textContent = "Saved: " + data.path;
+        $("status").className = "";
+      });
+
+      loadPrefs().then(async () => {
+        if (!$("repo").value) {
+          $("repo").value = "";
+        }
+        setReportMode("preview");
+        syncModelOtherUi();
+        await refreshModels({ quiet: true });
+      });
+    </script>
+  </body>
+</html>

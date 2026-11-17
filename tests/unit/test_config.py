@@ -64,6 +64,18 @@ exclude_globs = ["*.secret"]
     assert settings.exclude_globs == ["*.secret"]
 
 
+def test_checks_regression_enabled_from_toml(tmp_path) -> None:
+    (tmp_path / "config.toml").write_text(
+        """
+[checks]
+regression_enabled = true
+""",
+        encoding="utf-8",
+    )
+    settings = load_settings(cwd=tmp_path)
+    assert settings.checks_regression_enabled is True
+
+
 def test_context_symbol_search_can_be_disabled(tmp_path) -> None:
     (tmp_path / "config.toml").write_text(
         """

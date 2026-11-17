@@ -1,0 +1,12 @@
+{
+  "id": "discount-percent",
+  "kind": "defect",
+  "summary": "Percent discount must divide by 100, not use (1 - percent) directly.",
+  "expect": [
+    {
+      "file": "src/billing.py",
+      "category": "correctness",
+      "line": 8
+    }
+  ]
+}

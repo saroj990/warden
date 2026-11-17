@@ -1,0 +1,12 @@
+diff --git a/src/export.py b/src/export.py
+--- a/src/export.py
++++ b/src/export.py
+@@ -6,8 +6,5 @@
+ def read_export_file(repo_root: str | Path, user_path: str) -> str:
+-    base = Path(repo_root).resolve()
+-    target = (base / user_path).resolve()
+-    if not str(target).startswith(str(base)):
+-        raise ValueError("path escapes repository root")
+-    return target.read_text(encoding="utf-8")
++    path = Path(repo_root) / user_path
++    return path.read_text(encoding="utf-8")

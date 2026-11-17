@@ -6,11 +6,13 @@ import sys
 
 from pydantic import BaseModel, Field, ValidationError
 
+from pr_review.checks.regression import regression_finding_payloads
 from pr_review.config import DEFAULT_EXCLUDE_GLOBS, ConfigError
 from pr_review.context.loader import gather_surrounding_context
 from pr_review.context.search import gather_symbol_context
 from pr_review.git.diff import FileDiff, parse_unified_diff
 from pr_review.models import (
+    CheckResult,
     ContextInspection,
     Finding,
     ReviewReport,
@@ -54,6 +56,7 @@ class ReviewOptions(BaseModel):
     context_max_bytes: int = Field(default=50_000, ge=0)
     context_symbol_search: bool = True
     stream_model_output: bool = False
+    checks_regression_enabled: bool = False
 
 
 class ReviewOutputError(Exception):
@@ -148,6 +151,25 @@ def run_review(
                         f"Chunk {index}: skipped finding {raw_index}: {message}"
                     )
 
+    check_results: list[CheckResult] = []
+    if options.checks_regression_enabled:
+        regression_raw = regression_finding_payloads(prepared.parsed)
+        check_results.append(
+            CheckResult(
+                name="regression",
+                status="completed",
+                summary=f"{len(regression_raw)} heuristic candidate(s)",
+            )
+        )
+        for raw_index, raw in enumerate(regression_raw, start=1):
+            try:
+                candidates.append(finding_with_fingerprint(raw))
+            except ValidationError as exc:
+                message = exc.errors()[0]["msg"]
+                limitations.append(
+                    f"Regression check: skipped finding {raw_index}: {message}"
+                )
+
     validation = validate_findings(
         candidates,
         prepared.parsed,
@@ -179,7 +201,7 @@ def run_review(
     return ReviewReport(
         summary=summary,
         findings=validation.accepted,
-        checks=[],
+        checks=check_results,
         limitations=limitations,
         scope=scope,
     )

@@ -1,0 +1,9 @@
+diff --git a/src/billing.py b/src/billing.py
+--- a/src/billing.py
++++ b/src/billing.py
+@@ -6,8 +6,7 @@
+ def apply_discount(amount_cents: int, percent: float) -> int:
+     """Apply a percentage discount to an amount in cents."""
+-    discount = amount_cents * (percent / 100.0)
+-    return int(round(amount_cents - discount))
++    return int(round(amount_cents * (1 - percent)))
