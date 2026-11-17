@@ -144,6 +144,33 @@ def _options(**overrides: object) -> ReviewOptions:
     return ReviewOptions.model_validate(data)
 
 
+DISCOUNT_REGRESSION_DIFF = """\
+diff --git a/src/billing.py b/src/billing.py
+--- a/src/billing.py
++++ b/src/billing.py
+@@ -6,8 +6,7 @@
+ def apply_discount(amount_cents: int, percent: float) -> int:
+-    discount = amount_cents * (percent / 100.0)
+-    return int(round(amount_cents - discount))
++    return int(round(amount_cents * (1 - percent)))
+"""
+
+
+def test_regression_checks_publish_when_model_finds_nothing() -> None:
+    provider = ScriptedProvider([_document([])])
+    report = run_review(
+        DISCOUNT_REGRESSION_DIFF,
+        provider,
+        _options(checks_regression_enabled=True),
+    )
+
+    assert provider.calls == 1
+    assert report.checks
+    assert report.checks[0].name == "regression"
+    assert len(report.findings) >= 1
+    assert any("Percent discount" in finding.title for finding in report.findings)
+
+
 def test_accepts_evidence_backed_finding() -> None:
     provider = ScriptedProvider([_document([_finding_payload()])])
     report = run_review(SAMPLE_DIFF, provider, _options())

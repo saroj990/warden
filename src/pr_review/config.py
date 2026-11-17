@@ -42,6 +42,7 @@ class Settings(BaseModel):
     context_surrounding_lines: int = Field(default=15, ge=0)
     context_max_bytes: int = Field(default=50_000, ge=0)
     context_symbol_search: bool = True
+    checks_regression_enabled: bool = False
 
 
 def load_settings(
@@ -97,6 +98,7 @@ def _defaults() -> dict[str, object]:
         "context_surrounding_lines": 15,
         "context_max_bytes": 50_000,
         "context_symbol_search": True,
+        "checks_regression_enabled": False,
     }
 
 
@@ -146,6 +148,10 @@ def _overlay_toml(payload: dict[str, object], path: Path) -> None:
         payload["context_max_bytes"] = context["max_bytes"]
     if "symbol_search" in context:
         payload["context_symbol_search"] = context["symbol_search"]
+
+    checks = _section(loaded, "checks")
+    if "regression_enabled" in checks:
+        payload["checks_regression_enabled"] = checks["regression_enabled"]
 
 
 def _section(loaded: dict[str, object], name: str) -> dict[str, object]:

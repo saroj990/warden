@@ -28,9 +28,8 @@ base_url = "http://127.0.0.1:11434"
 timeout_seconds = 120
 
 [checks]
-# Only explicitly listed commands may run. Leave empty to skip deterministic checks.
-# Example: test = ["pytest", "-q"]
-enabled = false
+# Diff-backed heuristics (scaling, secrets, shell=True, path escape, money format).
+regression_enabled = false
 
 [report]
 # "markdown" | "json"

@@ -301,6 +301,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             context_max_bytes=settings.context_max_bytes,
             context_symbol_search=settings.context_symbol_search,
             stream_model_output=bool(getattr(args, "stream", False)),
+            checks_regression_enabled=settings.checks_regression_enabled,
         )
     except ValidationError as exc:
         print(f"error: invalid review options: {exc}", file=sys.stderr)
