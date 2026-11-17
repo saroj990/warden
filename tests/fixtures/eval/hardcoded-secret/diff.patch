@@ -1,0 +1,10 @@
+diff --git a/src/config.py b/src/config.py
+--- a/src/config.py
++++ b/src/config.py
+@@ -2,6 +2,5 @@
+ 
+-import os
+-
++WEBHOOK_TOKEN = "whsec_test"
+ 
+ def webhook_token() -> str:

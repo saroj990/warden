@@ -1,0 +1,8 @@
+diff --git a/src/hooks.py b/src/hooks.py
+--- a/src/hooks.py
++++ b/src/hooks.py
+@@ -8,5 +8,4 @@
+ def run_post_review_hook(command: str) -> int:
+-    completed = subprocess.run(command, check=False, shell=False, capture_output=True)
++    completed = subprocess.run(command, check=False, shell=True, capture_output=True)
+     return completed.returncode

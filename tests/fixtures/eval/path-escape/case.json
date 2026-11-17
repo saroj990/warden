@@ -1,0 +1,12 @@
+{
+  "id": "path-escape",
+  "kind": "defect",
+  "summary": "Export reader must reject paths that escape repo_root.",
+  "expect": [
+    {
+      "file": "src/export.py",
+      "category": "security",
+      "line": 8
+    }
+  ]
+}

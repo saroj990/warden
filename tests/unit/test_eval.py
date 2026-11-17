@@ -10,9 +10,18 @@ from pr_review.eval import load_cases, score_case
 from pr_review.eval.cases import EvalError
 from pr_review.eval.runner import run_evaluation
 from pr_review.models import ReviewReport, ReviewScope, finding_with_fingerprint
+from pr_review.review import ReviewOptions, run_review
 from tests.unit.test_orchestrator import ScriptedProvider, _document, _finding_payload
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "eval"
+
+REGRESSION_EVAL_IDS = (
+    "discount-percent",
+    "money-format-cents",
+    "shell-true",
+    "hardcoded-secret",
+    "path-escape",
+)
 
 
 def _report(*payloads: dict) -> ReviewReport:
@@ -26,13 +35,19 @@ def _report(*payloads: dict) -> ReviewReport:
 def test_loads_builtin_cases_in_stable_order() -> None:
     cases = load_cases(FIXTURES)
     assert [case.id for case in cases] == [
+        "discount-percent",
+        "hardcoded-secret",
+        "money-format-cents",
         "none-deref",
+        "path-escape",
         "prompt-injection",
         "rename-local",
+        "shell-true",
     ]
-    assert cases[0].kind == "defect"
-    assert cases[1].kind == "suppress"
-    assert cases[2].kind == "clean"
+    by_id = {case.id: case for case in cases}
+    assert by_id["none-deref"].kind == "defect"
+    assert by_id["prompt-injection"].kind == "suppress"
+    assert by_id["rename-local"].kind == "clean"
 
 
 def test_missing_suite_raises(tmp_path: Path) -> None:
@@ -41,7 +56,7 @@ def test_missing_suite_raises(tmp_path: Path) -> None:
 
 
 def test_defect_case_passes_when_file_category_and_line_match() -> None:
-    case = load_cases(FIXTURES)[0]
+    case = {c.id: c for c in load_cases(FIXTURES)}["none-deref"]
     score = score_case(case, _report(_finding_payload()))
     assert score.passed
     assert score.matched == 1
@@ -49,14 +64,14 @@ def test_defect_case_passes_when_file_category_and_line_match() -> None:
 
 
 def test_defect_case_records_a_miss() -> None:
-    case = load_cases(FIXTURES)[0]
+    case = {c.id: c for c in load_cases(FIXTURES)}["none-deref"]
     score = score_case(case, _report())
     assert not score.passed
     assert "src/example.py:2 (correctness)" in score.missed
 
 
 def test_extra_finding_does_not_fail_a_caught_defect() -> None:
-    case = load_cases(FIXTURES)[0]
+    case = {c.id: c for c in load_cases(FIXTURES)}["none-deref"]
     extra = _finding_payload(
         line=3,
         title="Second issue",
@@ -81,7 +96,12 @@ def test_clean_case_fails_when_a_finding_is_published() -> None:
 
 
 def test_runner_scores_a_correct_reviewer() -> None:
-    cases = load_cases(FIXTURES)
+    all_cases = load_cases(FIXTURES)
+    cases = [
+        c
+        for c in all_cases
+        if c.id in ("none-deref", "prompt-injection", "rename-local")
+    ]
     provider = ScriptedProvider(
         [
             _document([_finding_payload()]),
@@ -102,11 +122,32 @@ def test_runner_scores_a_correct_reviewer() -> None:
     assert "for reasoning only" not in provider.prompts[0]
 
 
+@pytest.mark.parametrize("case_id", REGRESSION_EVAL_IDS)
+def test_regression_eval_case_passes_with_checks_only(case_id: str) -> None:
+    case = {c.id: c for c in load_cases(FIXTURES)}[case_id]
+    provider = ScriptedProvider([_document([])])
+    report = run_review(
+        case.diff,
+        provider,
+        ReviewOptions(
+            model="test-model",
+            provider_name="scripted",
+            comparison=f"eval:{case.id}",
+            diff_source=case.id,
+            checks_regression_enabled=True,
+            context_enabled=False,
+            context_symbol_search=False,
+        ),
+    )
+    score = score_case(case, report)
+    assert score.passed, score.missed
+
+
 def test_runner_records_unreadable_model_output() -> None:
-    cases = load_cases(FIXTURES)
+    case = {c.id: c for c in load_cases(FIXTURES)}["none-deref"]
     provider = ScriptedProvider(["not json", "still not json"])
     report = run_evaluation(
-        [cases[0]],
+        [case],
         provider,
         model="test-model",
         timeout_seconds=5,

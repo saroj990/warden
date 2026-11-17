@@ -1,0 +1,9 @@
+diff --git a/src/billing.py b/src/billing.py
+--- a/src/billing.py
++++ b/src/billing.py
+@@ -10,6 +10,5 @@
+ def format_cents(cents: int) -> str:
+     """Format cents as a dollar string."""
+-    dollars = cents / 100.0
+-    return f"${dollars:.2f}"
++    return f"${cents}"

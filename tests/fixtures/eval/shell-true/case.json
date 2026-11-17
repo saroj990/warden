@@ -1,0 +1,12 @@
+{
+  "id": "shell-true",
+  "kind": "defect",
+  "summary": "subprocess must not use shell=True with a string command.",
+  "expect": [
+    {
+      "file": "src/hooks.py",
+      "category": "security",
+      "line": 9
+    }
+  ]
+}

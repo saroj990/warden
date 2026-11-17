@@ -42,6 +42,7 @@ def run_evaluation(
     *,
     model: str,
     timeout_seconds: float,
+    checks_regression_enabled: bool = False,
 ) -> EvalReport:
     """Review each fixture diff and score it against its label."""
     scores: list[CaseScore] = []
@@ -54,6 +55,7 @@ def run_evaluation(
             timeout_seconds=timeout_seconds,
             context_enabled=False,
             context_symbol_search=False,
+            checks_regression_enabled=checks_regression_enabled,
         )
         try:
             report = run_review(case.diff, provider, options)

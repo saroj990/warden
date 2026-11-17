@@ -174,6 +174,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Provider timeout in seconds.",
     )
+    evaluate.add_argument(
+        "--regression-checks",
+        action="store_true",
+        help="Enable diff-backed regression heuristics during eval.",
+    )
     evaluate.set_defaults(func=cmd_eval)
 
     github = subparsers.add_parser(
@@ -355,11 +360,15 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
     try:
         provider = build_provider(settings)
+        regression_checks = settings.checks_regression_enabled or bool(
+            getattr(args, "regression_checks", False)
+        )
         report = run_evaluation(
             cases,
             provider,
             model=settings.model,
             timeout_seconds=settings.timeout_seconds,
+            checks_regression_enabled=regression_checks,
         )
     except ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -1,0 +1,12 @@
+{
+  "id": "money-format-cents",
+  "kind": "defect",
+  "summary": "Cents must be divided by 100 before dollar formatting.",
+  "expect": [
+    {
+      "file": "src/billing.py",
+      "category": "correctness",
+      "line": 12
+    }
+  ]
+}

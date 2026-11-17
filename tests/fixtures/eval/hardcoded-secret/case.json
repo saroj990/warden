@@ -1,0 +1,12 @@
+{
+  "id": "hardcoded-secret",
+  "kind": "defect",
+  "summary": "Webhook token must not be hardcoded in source.",
+  "expect": [
+    {
+      "file": "src/config.py",
+      "category": "security",
+      "line": 3
+    }
+  ]
+}
