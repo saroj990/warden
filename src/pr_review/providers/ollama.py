@@ -129,6 +129,7 @@ class OllamaProvider(LLMProvider):
             if timeout_seconds is None
             else timeout_seconds
         )
+        httpx_timeout = _ollama_httpx_timeout(timeout, stream=stream)
         body = {
             "model": model,
             "messages": [
@@ -143,7 +144,9 @@ class OllamaProvider(LLMProvider):
         if stream:
             writer = stream_writer or _default_stream_writer
             try:
-                content, payload = _chat_stream(client, body, timeout, writer)
+                content, payload = _chat_stream(
+                    client, body, httpx_timeout, writer
+                )
             except httpx.TimeoutException as exc:
                 raise ProviderTimeoutError("Ollama chat request timed out") from exc
             except httpx.HTTPStatusError as exc:
@@ -155,7 +158,7 @@ class OllamaProvider(LLMProvider):
                 response = client.post(
                     "/api/chat",
                     json=body,
-                    timeout=timeout,
+                    timeout=httpx_timeout,
                 )
                 response.raise_for_status()
             except httpx.TimeoutException as exc:
@@ -197,6 +200,18 @@ class OllamaProvider(LLMProvider):
         )
 
 
+def _ollama_httpx_timeout(seconds: float, *, stream: bool) -> httpx.Timeout:
+    """Streamed chats can pause between tokens; do not cap idle read time."""
+    if stream:
+        return httpx.Timeout(
+            connect=min(60.0, seconds),
+            read=None,
+            write=min(60.0, seconds),
+            pool=min(60.0, seconds),
+        )
+    return httpx.Timeout(seconds)
+
+
 def _default_stream_writer(text: str) -> None:
     sys.stderr.write(text)
     sys.stderr.flush()
@@ -220,7 +235,7 @@ def _raise_chat_http_error(exc: httpx.HTTPStatusError, model: str) -> None:
 def _chat_stream(
     client: httpx.Client,
     body: dict[str, Any],
-    timeout: float,
+    timeout: httpx.Timeout,
     writer: Callable[[str], None],
 ) -> tuple[str, dict[str, Any]]:
     """Read Ollama NDJSON stream and return full text plus the final payload."""
