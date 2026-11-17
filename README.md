@@ -45,6 +45,7 @@ warden review --diff ./changes.diff --model <installed-model> \
 # clean or suppressed case publishes a finding. Context is not loaded.
 # Results depend on the model.
 warden eval --model <installed-model> --timeout 180
+warden eval --regression-checks --model <installed-model>  # + diff heuristics
 
 # Preview GitHub pull request comments. This does not post anything.
 # GITHUB_TOKEN is required and is not printed. Add --publish to post a
@@ -52,6 +53,11 @@ warden eval --model <installed-model> --timeout 180
 warden github review --repository owner/name --pr 123 \
   --model <installed-model> --timeout 180
 ```
+
+## Local browser UI (optional)
+
+A small form in `local-ui/` runs on http://127.0.0.1:8765 — set repo path, base/head
+branches, Ollama URL/model, run review, save Markdown. See `local-ui/README.md`.
 
 ## Tests
 
