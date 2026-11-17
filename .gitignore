@@ -4,6 +4,9 @@ pr-review-agent-build-prompt.md
 # Local issue and planning notes (not tracked)
 issues/
 
+# Eval sandbox repos (push to GitHub separately)
+local-eval-sandbox/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -38,3 +41,8 @@ htmlcov/
 *.log
 review.md
 review.json
+
+# Optional local UI (app is tracked; local state and saves are not)
+local-ui/reports/
+local-ui/cache/
+local-ui/form.json
